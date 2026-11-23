@@ -58,6 +58,37 @@ class TestYoutubeMisc(unittest.TestCase):
         for unit in YoutubeBaseInfoExtractor._RELATIVE_TIME_UNIT_MAP:
             self.assertIsNotNone(ert(f'1 {unit} ago'), f'unit {unit!r} did not parse')
 
+    def test_extract_loudness(self):
+        def pr(config, client=None):
+            data = {'playerConfig': {'audioConfig': config}} if config is not None else {}
+            if client:
+                data['streamingData'] = {'__yt_dlp_innertube_context': {'client': {'clientName': client}}}
+            return data
+
+        extract = YoutubeIE._extract_loudness
+        # Values recorded from 51GIxXFKbzk and jNQXAC9IVRw
+        yamero = {'trackAbsoluteLoudnessLkfs': -6.8400002, 'loudnessTargetLkfs': -14, 'loudnessDb': 7.1599998}
+        self.assertEqual(extract([pr(yamero, 'WEB')]), {
+            'loudness_lkfs': -6.8400002,
+            'loudness_target_lkfs': -14.0,
+            'loudness_over_target_db': 7.1599998,
+        })
+        self.assertEqual(extract([pr({'trackAbsoluteLoudnessLkfs': -23.67, 'loudnessTargetLkfs': -14})]), {
+            'loudness_lkfs': -23.67,
+            'loudness_target_lkfs': -14.0,
+            'loudness_over_target_db': None,
+        })
+        # Absent data: no fields
+        self.assertEqual(extract([pr(None, 'WEB'), {}]), {})
+        self.assertEqual(extract([pr({'loudnessTargetLkfs': -14})]), {})
+        self.assertEqual(extract([]), {})
+        # Web values win over other clients, whatever the order
+        other = {'trackAbsoluteLoudnessLkfs': -9.0, 'loudnessTargetLkfs': -14}
+        self.assertEqual(extract([pr(other, 'IOS'), pr(yamero, 'WEB')])['loudness_lkfs'], -6.8400002)
+        self.assertEqual(extract([pr(other, 'IOS'), pr(yamero)])['loudness_lkfs'], -6.8400002)
+        # Other clients are used when the web ones have nothing
+        self.assertEqual(extract([pr(None, 'WEB'), pr(other, 'VISIONOS')])['loudness_lkfs'], -9.0)
+
 
 if __name__ == '__main__':
     unittest.main()

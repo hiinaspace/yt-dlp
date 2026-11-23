@@ -1351,6 +1351,9 @@ The available fields are:
  - `dislike_count` (numeric): Number of negative ratings of the video
  - `repost_count` (numeric): Number of reposts of the video
  - `average_rating` (numeric): Average rating given by users, the scale used depends on the webpage
+ - `loudness_lkfs` (numeric): Integrated loudness (LKFS) of the video's default audio track, as measured by the site (YouTube)
+ - `loudness_target_lkfs` (numeric): Loudness (LKFS) the site normalizes playback towards (YouTube: -14)
+ - `loudness_over_target_db` (numeric): How many dB louder than `loudness_target_lkfs` the video is, i.e. `loudness_lkfs - loudness_target_lkfs`. A player that only attenuates applies `-max(0, loudness_over_target_db)` dB
  - `comment_count` (numeric): Number of comments on the video (For some extractors, comments are only downloaded at the end, and so this field cannot be used)
  - `save_count` (numeric): Number of times the video has been saved or bookmarked
  - `age_limit` (numeric): Age restriction for the video (years)

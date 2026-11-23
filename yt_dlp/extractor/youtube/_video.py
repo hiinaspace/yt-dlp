@@ -3781,6 +3781,30 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                             yield f
         yield subtitles
 
+    @staticmethod
+    def _extract_loudness(player_responses):
+        """Video-level (default audio track) loudness from `playerConfig.audioConfig`
+
+        Responses from non-web clients are only used if no web response has the data.
+        Responses without streaming data (i.e. the webpage's own initial response) count as web.
+        """
+        def is_web(pr):
+            client = traverse_obj(pr, ('streamingData', STREAMING_DATA_INNERTUBE_CONTEXT, 'client', 'clientName'))
+            return not isinstance(client, str) or client.upper().startswith('WEB')
+
+        prs = [pr for pr in player_responses if isinstance(pr, dict)]
+        for pr in sorted(prs, key=lambda pr: not is_web(pr)):  # stable
+            config = traverse_obj(pr, ('playerConfig', 'audioConfig', {dict}))
+            loudness = float_or_none(traverse_obj(config, 'trackAbsoluteLoudnessLkfs'))
+            if loudness is None:
+                continue
+            return {
+                'loudness_lkfs': loudness,
+                'loudness_target_lkfs': float_or_none(traverse_obj(config, 'loudnessTargetLkfs')),
+                'loudness_over_target_db': float_or_none(traverse_obj(config, 'loudnessDb')),
+            }
+        return {}
+
     def _extract_storyboard(self, player_responses, duration):
         spec = get_first(
             player_responses, ('storyboards', 'playerStoryboardSpecRenderer', 'spec'), default='').split('|')[::-1]
@@ -4207,6 +4231,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 get_first((video_details, microformats), (..., 'viewCount'))
                 or search_meta('interactionCount')),
             'average_rating': float_or_none(get_first(video_details, 'averageRating')),
+            **self._extract_loudness(player_responses),
             'age_limit': 18 if (
                 get_first(microformats, 'isFamilySafe') is False
                 or search_meta('isFamilyFriendly') == 'false'
